@@ -1,18 +1,22 @@
-import os
 import torch
 import logging
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+from langchain_core.prompts import PromptTemplate  # Updated import per deprecation notice
+from langchain.chains import RetrievalQA
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.document_loaders import PyPDFLoader  # New import path
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma  # New import path
+from langchain_huggingface import HuggingFacePipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+import warnings
+warnings.filterwarnings("ignore", message="Can't initialize NVML")
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
-from langchain_core.prompts import PromptTemplate  # Updated import per deprecation notice
-from langchain.chains import RetrievalQA
-from langchain_community.embeddings import HuggingFaceInstructEmbeddings  # New import path
-from langchain_community.document_loaders import PyPDFLoader  # New import path
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma  # New import path
-from langchain_ibm import WatsonxLLM
 
 # Check for GPU availability and set the appropriate device for computation.
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -22,59 +26,86 @@ conversation_retrieval_chain = None
 chat_history = []
 llm_hub = None
 embeddings = None
-
-# Function to initialize the language model and its embeddings
+# ----------------------------
+# Initialize local LLaMA LLM
+# ----------------------------
 def init_llm():
     global llm_hub, embeddings
 
-    logger.info("Initializing WatsonxLLM and embeddings...")
+    logger.info("Initializing LLM and embeddings...")
 
-    # Llama Model Configuration
-    MODEL_ID = "meta-llama/llama-3-3-70b-instruct"
-    WATSONX_URL = "https://us-south.ml.cloud.ibm.com"
-    PROJECT_ID = "skills-network"
-
-    # Use the same parameters as before:
-    #   MAX_NEW_TOKENS: 256, TEMPERATURE: 0.1
-    model_parameters = {
-        # "decoding_method": "greedy",
-        "max_new_tokens": 256,
-        "temperature": 0.1,
-    }
-
-    # Initialize Llama LLM using the updated WatsonxLLM API
-    llm_hub = WatsonxLLM(
-        model_id=MODEL_ID,
-        url=WATSONX_URL,
-        project_id=PROJECT_ID,
-        params=model_parameters
+     # Local LLaMA 2 model
+    MODEL_ID = "meta-llama/Llama-2-7b-chat-hf"  # free for research/commercial
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_ID,
+        device_map="auto",   # automatic GPU assignment if available
+        torch_dtype=torch.float16,  # reduce memory usage
+        low_cpu_mem_usage=True
     )
-    logger.debug("WatsonxLLM initialized: %s", llm_hub)
 
-    #Initialize embeddings using a pre-trained model to represent the text data.
-    embeddings =  # create object of Hugging Face Instruct Embeddings with (model_name,  model_kwargs={"device": DEVICE} )
-    
+    # HuggingFace pipeline
+    pipe = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        max_new_tokens=256,
+        temperature=0.1,
+    )
+
+    # Wrap with LangChain
+    llm_hub = HuggingFacePipeline(pipeline=pipe)
+    logger.info("Local LLaMA2 model initialized successfully.")
+    # Initialize embeddings for document retrieval
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": DEVICE}
+    )
+
     logger.debug("Embeddings initialized with model device: %s", DEVICE)
+
 
 # Function to process a PDF document
 def process_document(document_path):
-    global conversation_retrieval_chain
-
+    global conversation_retrieval_chain, embeddings
     logger.info("Loading document from path: %s", document_path)
     # Load the document
-    loader =  # ---> use PyPDFLoader and document_path from the function input parameter <---
+    loader = PyPDFLoader(document_path)
     documents = loader.load()
-    logger.debug("Loaded %d document(s)", len(documents))
-
-    # Split the document into chunks, set chunk_size=1024, and chunk_overlap=64. assign it to variable text_splitter
-    text_splitter = # ---> use Recursive Character TextSplitter and specify the input parameters <---
+    if not documents:
+        return "⚠️ Could not load the PDF."
+    # Split the document into chunks
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1024, chunk_overlap=64)
     texts = text_splitter.split_documents(documents)
     logger.debug("Document split into %d text chunks", len(texts))
 
     # Create an embeddings database using Chroma from the split text chunks.
-    logger.info("Initializing Chroma vector store from documents...")
     db = Chroma.from_documents(texts, embedding=embeddings)
     logger.debug("Chroma vector store initialized.")
+
+    # Custom prompt template to get only the answer
+    prompt = PromptTemplate(
+        template="""
+                    You are an assistant answering questions based ONLY on the provided context.
+
+                    Rules:
+                    - Use the context silently.
+                    - Do NOT repeat the context.
+                    - Do NOT include CV-style listings or raw text.
+                    - Answer in clear, concise sentences.
+                    - If the answer is not found in the context, say:
+                    "I could not find this information in the uploaded document."
+
+                    Context:
+                    {context}
+
+                    Question:
+                    {query}
+
+                    Answer:
+                    """,
+        input_variables=["context", "query"]
+    )
 
     # Optional: Log available collections if accessible (this may be internal API)
     try:
@@ -87,33 +118,52 @@ def process_document(document_path):
     conversation_retrieval_chain = RetrievalQA.from_chain_type(
         llm=llm_hub,
         chain_type="stuff",
-        retriever=db.as_retriever(search_type="mmr", search_kwargs={'k': 6, 'lambda_mult': 0.25}),
+        retriever=db.as_retriever(search_type="mmr",
+                                  search_kwargs={'k': 6, 'lambda_mult': 0.25}),
+        chain_type_kwargs={"prompt": prompt}, # Use my prompt template
         return_source_documents=False,
-        input_key="question"
-        # chain_type_kwargs={"prompt": prompt}  # if you are using a prompt template, uncomment this part
-    )
-    logger.info("RetrievalQA chain created successfully.")
+        input_key="query"
+        )
     
+    logger.info("RetrievalQA chain created successfully.")
+
 # Function to process a user prompt
 def process_prompt(prompt):
+    """
+    Process a user prompt using the retrieval-based LLM chain.
+
+    Args:
+        prompt (str): The user's input/question.
+
+    Returns:
+        str: The model's response, or an informative error message if not ready.
+    """
     global conversation_retrieval_chain
     global chat_history
 
-    logger.info("Processing prompt: %s", prompt)
-    # Query the model using the new .invoke() method
-    output = conversation_retrieval_chain.invoke({"question": prompt, "chat_history": chat_history})
-    answer = output["result"]
-    logger.debug("Model response: %s", answer)
+    logger.info("Received prompt: %s", prompt)
+
+    # Check if the retrieval chain is initialized
+    if conversation_retrieval_chain is None:
+        logger.warning("Retrieval chain is not initialized. PDF may not have been processed yet.")
+        return "⚠️ No document has been processed yet. Please upload a PDF first."
+
+    # Query the model
+    try:
+        output = conversation_retrieval_chain.invoke({
+            "query": prompt,
+            "chat_history": chat_history
+        })
+        answer = output["result"]
+    except Exception as e:
+        logger.error("Error querying LLM: %s", e)
+        return "⚠️ Something went wrong while processing your message."
 
     # Update the chat history
-    # TODO: Append the prompt and the bot's response to the chat history using chat_history.append and pass `prompt` `answer` as arguments
-    # --> write your code here <--	
-    
+    chat_history.append((prompt, answer))
     logger.debug("Chat history updated. Total exchanges: %d", len(chat_history))
 
-    # Return the model's response
     return answer
-
 # Initialize the language model
 init_llm()
 logger.info("LLM and embeddings initialization complete.")
