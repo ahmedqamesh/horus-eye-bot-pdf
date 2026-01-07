@@ -62,7 +62,7 @@ def process_document_route():
     # Check if a file was uploaded
     if 'file' not in request.files:
         return jsonify({
-            "botResponse": "It seems like the file was not uploaded correctly, can you try "
+            "botResponse": "Bot: It seems like the file was not uploaded correctly, can you try "
                            "again. If the problem persists, try using a different file"
         }), 400
 
@@ -81,7 +81,7 @@ def process_document_route():
 
     # Return the success message
     return jsonify({
-        "botResponse": "Analyzing PDF..., Please ask the question!"
+        "botResponse": "Bot: Analyzing PDF..., Please ask the question!"
     }), 200
 
 # Define the route for the index page

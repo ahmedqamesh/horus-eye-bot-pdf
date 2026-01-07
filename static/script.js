@@ -6,6 +6,37 @@ const botRepeatButtonIDToIndexMap = {};
 const userRepeatButtonIDToRecordingMap = {};
 const baseUrl = window.location.origin
 
+document.addEventListener("DOMContentLoaded", function () {
+    const dropdown = document.getElementById("modelSelect");
+
+    if (!dropdown) {
+        console.error("Could not find element with ID 'modelSelect'");
+        return;
+    }
+
+    dropdown.addEventListener("change", async function () {
+        const MODEL_ID = this.value;
+        console.log("Selected MODEL_ID:", MODEL_ID);
+
+        try {
+            const response = await fetch("/api/dropdown_modules", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: MODEL_ID,
+                    message: "test"
+                })
+            });
+
+            const data = await response.json();
+            console.log("Server Response:", data);
+        } catch (error) {
+            console.error("Fetch failed:", error);
+        }
+    });
+});
+
+
 async function showBotLoadingAnimation() {
   await sleep(200);
   $(".loading-animation")[1].style.display = "inline-block";
@@ -80,11 +111,12 @@ const populateBotResponse = async (userMessage) => {
   let uploadButtonHtml = '';
 
   if (isFirstMessage) {
-    response = { botResponse: "Hello! Upload a PDF and I'll help with it."};
-    uploadButtonHtml = `
-        <input type="file" id="file-upload" accept=".pdf" hidden>
-        <button id="upload-button" class="btn btn-primary btn-sm">Upload File</button>
-    `;
+    response = {botResponse:"Bot: Ask me questions about your data..."};
+    // response = { botResponse: "Hello there! I'm your friendly data assistant, ready to answer any questions regarding your data. Could you please upload a PDF file for me to analyze?"};
+    // uploadButtonHtml = `
+    //      <input type="file" id="file-upload" accept=".pdf" hidden>
+    //      <button id="upload-button" class="btn btn-primary btn-sm">Upload File</button>
+    //  `;
 
   } else {
     response = await processUserMessage(userMessage);

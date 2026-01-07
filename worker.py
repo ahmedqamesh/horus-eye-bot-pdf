@@ -11,6 +11,10 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma  # New import path
 from langchain_huggingface import HuggingFacePipeline
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from langchain.chains import ConversationalRetrievalChain
+from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+
+
 import warnings
 warnings.filterwarnings("ignore", message="Can't initialize NVML")
 
@@ -50,6 +54,9 @@ def init_llm(model_id: str):
         tokenizer=tokenizer,
         max_new_tokens=256,
         temperature=0.1,
+        repetition_penalty=1.1,
+        return_full_text=False, # <--- THIS stops the model from including the prompt in the output
+        pad_token_id=tokenizer.eos_token_id  # Prevents unnecessary padding warnings
     )
 
     # Wrap with LangChain
@@ -82,28 +89,31 @@ def process_document(document_path):
     # Create an embeddings database using Chroma from the split text chunks.
     db = Chroma.from_documents(texts, embedding=embeddings)
     logger.debug("Chroma vector store initialized.")
+    # system message (hidden instructions)
+    system_msg = SystemMessagePromptTemplate.from_template(
+    "You are a concise assistant. Use the provided context to answer, "
+    "but DO NOT repeat the context in your response. "
+    "Provide ONLY the final answer. "
+    "Context: {context}"
+    )
 
+    human_msg = HumanMessagePromptTemplate.from_template("{question}")
+
+    chat_prompt = ChatPromptTemplate.from_messages([system_msg, human_msg])
     # Custom prompt template to get only the answer
     prompt = PromptTemplate(
-        template="""
-                    You are an assistant answering questions based ONLY on the provided context.
+    template="""[INST] <<SYS>>
+    You are a concise assistant. Use ONLY the provided context to answer. 
+    If the answer is not in the context, say you don't know.
+    <</SYS>>
 
-                    Rules:
-                    - Use the context silently.
-                    - Do NOT repeat the context.
-                    - Do NOT include CV-style listings or raw text.
-                    - Answer in clear, concise sentences.
-                    - If the answer is not found in the context, say:
-                    "I could not find this information in the uploaded document."
+    Context:
+    {context}
 
-                    Context:
-                    {context}\n
+    Question:
+    {question}
 
-                    Question:
-                    {question}\n
-
-                    Answer:
-                    """,
+    Answer: [/INST]""",
         input_variables=["context", "question"]
     )
 
@@ -115,15 +125,29 @@ def process_document(document_path):
         logger.warning("Could not retrieve collections from Chroma: %s", e)
 
     # Build the QA chain, which utilizes the LLM and retriever for answering questions. 
-    conversation_retrieval_chain = RetrievalQA.from_chain_type(
+
+        # Then in process_document:
+    conversation_retrieval_chain = ConversationalRetrievalChain.from_llm(
         llm=llm_hub,
-        chain_type="stuff",
         retriever=db.as_retriever(search_type="mmr",
-                                  search_kwargs={'k': 6, 'lambda_mult': 0.25}),
-        chain_type_kwargs={"prompt": prompt}, # Use my prompt template
-        return_source_documents=False,
-        input_key="question"
+                                  search_kwargs={'k': 6, 'lambda_mult': 0.25}
+                                  ),
+        combine_docs_chain_kwargs={"prompt": chat_prompt},
+        return_source_documents=False
+        #input_key="question" # 'input_key' is REMOVED because it's forbidden in this chain
         )
+
+
+    # conversation_retrieval_chain = RetrievalQA.from_chain_type(
+    #     llm=llm_hub,
+    #     chain_type="stuff",
+    #     retriever=db.as_retriever(search_type="mmr",
+    #                               search_kwargs={'k': 6, 'lambda_mult': 0.25}),
+    #     chain_type_kwargs={"prompt": prompt 
+    #                        }, # Use my prompt template
+    #     return_source_documents=False,
+    #     input_key="question"
+    #     )
     
     logger.info("RetrievalQA chain created successfully.")
 
@@ -146,7 +170,7 @@ def process_prompt(prompt):
     # Check if the retrieval chain is initialized
     if conversation_retrieval_chain is None:
         logger.warning("Retrieval chain is not initialized. PDF may not have been processed yet.")
-        return "⚠️ No document has been processed yet. Please upload a PDF first."
+        return "⚠️ No document Found. Please upload a PDF first."
 
     # Query the model
     try:
@@ -154,7 +178,7 @@ def process_prompt(prompt):
             "question": prompt,
             "chat_history": chat_history
         })
-        answer = output["result"]
+        answer = output["answer"] # FIX: Changed "result" to "answer"
     except Exception as e:
         logger.error("Error querying LLM: %s", e)
         return "⚠️ Something went wrong while processing your message."
@@ -162,7 +186,6 @@ def process_prompt(prompt):
     # Update the chat history
     chat_history.append((prompt, answer))
     logger.debug("Chat history updated. Total exchanges: %d", len(chat_history))
-
     return answer
 # Initialize the language model
 init_llm(model_id= "meta-llama/Llama-2-7b-chat-hf")

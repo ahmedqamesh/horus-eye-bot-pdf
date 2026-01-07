@@ -22,25 +22,60 @@
 
 </head>
 <body>
-    <div class="container d-flex flex-column vh-100">
-        <div class="row align-items-center mt-3 mb-3">
+    <div class="container d-flex flex-column vh-80">
+        <div class="row align-items-center mt-1 mb-1">
             <!-- Logo in the center/right -->
             <img src="{{ url_for('static', filename='images/horus-logo.png') }}" 
                 alt="Horus Logo" 
-                style="height:100px;">
-            
+                style="height:80px;">
             <!-- Title on the left -->
             <div class="col-10 d-flex justify-content-center ">
                 <h1 class="mb-0">Horus Eye Assistant</h1>
             </div>
         </div>
-        <label for="modelSelect">Choose a model:</label>
+    <!-- Flex Container for horizontal alignment -->
+    <div style="display: flex; align-items: center; justify-content: center; flex-wrap: wrap;">
+      
+        <!-- Choose a Model Section -->
+        <div style="display: flex; align-items: center;"></div>
+        <label for="modelSelect" style="font-size: 14px; white-space: nowrap;">Choose a model:</label>
         <!-- 1. The dropdown must come FIRST -->
         <select id="modelSelect" class="auto-width">
-        <option value="llama2-7b">LLaMA 2 (7B)</option>
-        <option value="mistral-7b">Mistral 7B</option>
+            <option value="llama2-7b">LLaMA 2 (7B)</option>
+            <option value="mistral-7b">Mistral 7B</option>
         </select>
+        
+        <!-- Upload Section -->
+        <div class="assistant-box" style="
+            background-color: #f8f9fa; 
+            border: 2px solid #e0e0e0; 
+            border-radius: 10px; 
+            padding: 3px; 
+            max-width: 600px; 
+            margin: 2px auto; 
+            text-align: center; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            ">
+            <!-- Assistant Text -->
+            <p style="font-size: 14px; color: #333; margin-bottom: 2px; line-height: 1;">
+                <strong>Hello there!</strong> Please upload a PDF file to analyze. 
+            </p>
 
+            <div class="upload-container">
+
+                <!-- Hidden file input -->
+                <input type="file" id="file-upload" accept=".pdf" style="display: none;">
+                
+                <!-- Button that triggers the input -->
+                <button id="upload-button" class="btn btn-primary btn-sm" onclick="document.getElementById('file-upload').click()">
+                    Upload File
+                </button>
+                </div>
+            </div>               
+                <!-- Status Message inside the box -->
+            <div id="statusMessage" style="font-size: 12px; margin-top: 10px; color: #007bff; min-height: 8px;"></div>
+        </div>
+        <script>src="scripts.js"</script>
         <div class="row flex-grow-1 overflow-auto">
             <div class="col-12 col-md-8 mx-auto d-flex flex-column">
                 <div id="chat-window" class="p-3">
@@ -82,34 +117,7 @@
         </div>
     </div>
     <!-- 2. The script comes LAST -->
-    <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        // Now the browser is sure #modelSelect exists
-        const dropdown = document.getElementById("modelSelect");
-
-        if (dropdown) {
-            dropdown.addEventListener("change", async function () {
-                const MODEL_ID = this.value;
-                console.log("Selected MODEL_ID:", MODEL_ID);
-
-                const response = await fetch("/api/dropdown_modules", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        model: MODEL_ID,
-                        message: "test"
-                    })
-                });
-
-                const data = await response.json();
-                console.log("Server Response:", data);
-            });
-        } else {
-            console.error("Could not find element with ID 'modelSelect'");
-        }
-    });
-    </script>
-
+    <script>src="scripts.js"</script>
 </body>
 </html>
 
