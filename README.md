@@ -8,7 +8,11 @@ This project implements a **local AI chatbot** that can:
 
 It is designed to run **locally**, using **free and open models**.
 
-![horus-eye-assistant-front](https://github.com/ahmedqamesh/horus-eye-bot-pdf/blob/main/assets/horus-eye-assistant-front.png)
+<img 
+  src="https://github.com/ahmedqamesh/horus-eye-bot-pdf/blob/main/assets/images/horus-eye-assistant-front.png"
+  alt="horus-eye-assistant-front"
+  width="300"
+/>
 
 ---
 
