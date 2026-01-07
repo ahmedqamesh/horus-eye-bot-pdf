@@ -9,6 +9,10 @@ body {
   background-color: #121717;
   color: #c9c9c9;
 }
+.auto-width {
+  width: fit-content;
+  min-width: max-content;
+}
 
 #chat-window {
   position: relative;

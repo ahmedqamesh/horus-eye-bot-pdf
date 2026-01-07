@@ -18,6 +18,8 @@
     />
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="../static/script.js"></script>
+    
+
 </head>
 <body>
     <div class="container d-flex flex-column vh-100">
@@ -32,6 +34,12 @@
                 <h1 class="mb-0">Horus Eye Assistant</h1>
             </div>
         </div>
+        <label for="modelSelect">Choose a model:</label>
+        <!-- 1. The dropdown must come FIRST -->
+        <select id="modelSelect" class="auto-width">
+        <option value="llama2-7b">LLaMA 2 (7B)</option>
+        <option value="mistral-7b">Mistral 7B</option>
+        </select>
 
         <div class="row flex-grow-1 overflow-auto">
             <div class="col-12 col-md-8 mx-auto d-flex flex-column">
@@ -73,5 +81,37 @@
             </div>
         </div>
     </div>
+    <!-- 2. The script comes LAST -->
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Now the browser is sure #modelSelect exists
+        const dropdown = document.getElementById("modelSelect");
+
+        if (dropdown) {
+            dropdown.addEventListener("change", async function () {
+                const MODEL_ID = this.value;
+                console.log("Selected MODEL_ID:", MODEL_ID);
+
+                const response = await fetch("/api/dropdown_modules", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: MODEL_ID,
+                        message: "test"
+                    })
+                });
+
+                const data = await response.json();
+                console.log("Server Response:", data);
+            });
+        } else {
+            console.error("Could not find element with ID 'modelSelect'");
+        }
+    });
+    </script>
+
 </body>
 </html>
+
+
+

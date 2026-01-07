@@ -26,19 +26,18 @@ conversation_retrieval_chain = None
 chat_history = []
 llm_hub = None
 embeddings = None
-# ----------------------------
+
 # Initialize local LLaMA LLM
-# ----------------------------
-def init_llm():
+def init_llm(model_id: str):
     global llm_hub, embeddings
 
     logger.info("Initializing LLM and embeddings...")
 
      # Local LLaMA 2 model
-    MODEL_ID = "meta-llama/Llama-2-7b-chat-hf"  # free for research/commercial
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    #MODEL_ID = "meta-llama/Llama-2-7b-chat-hf"  # free for research/commercial
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_ID,
+        model_id,
         device_map="auto",   # automatic GPU assignment if available
         torch_dtype=torch.float16,  # reduce memory usage
         low_cpu_mem_usage=True
@@ -63,7 +62,8 @@ def init_llm():
     )
 
     logger.debug("Embeddings initialized with model device: %s", DEVICE)
-
+    logger.info("LLM and embeddings initialization complete.")
+    return llm_hub
 
 # Function to process a PDF document
 def process_document(document_path):
@@ -97,14 +97,14 @@ def process_document(document_path):
                     "I could not find this information in the uploaded document."
 
                     Context:
-                    {context}
+                    {context}\n
 
                     Question:
-                    {query}
+                    {question}\n
 
                     Answer:
                     """,
-        input_variables=["context", "query"]
+        input_variables=["context", "question"]
     )
 
     # Optional: Log available collections if accessible (this may be internal API)
@@ -122,7 +122,7 @@ def process_document(document_path):
                                   search_kwargs={'k': 6, 'lambda_mult': 0.25}),
         chain_type_kwargs={"prompt": prompt}, # Use my prompt template
         return_source_documents=False,
-        input_key="query"
+        input_key="question"
         )
     
     logger.info("RetrievalQA chain created successfully.")
@@ -141,7 +141,7 @@ def process_prompt(prompt):
     global conversation_retrieval_chain
     global chat_history
 
-    logger.info("Received prompt: %s", prompt)
+    logger.info("Processing prompt: %s", prompt)
 
     # Check if the retrieval chain is initialized
     if conversation_retrieval_chain is None:
@@ -151,7 +151,7 @@ def process_prompt(prompt):
     # Query the model
     try:
         output = conversation_retrieval_chain.invoke({
-            "query": prompt,
+            "question": prompt,
             "chat_history": chat_history
         })
         answer = output["result"]
@@ -165,5 +165,5 @@ def process_prompt(prompt):
 
     return answer
 # Initialize the language model
-init_llm()
-logger.info("LLM and embeddings initialization complete.")
+init_llm(model_id= "meta-llama/Llama-2-7b-chat-hf")
+

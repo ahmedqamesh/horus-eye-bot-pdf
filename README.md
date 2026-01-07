@@ -10,7 +10,7 @@ It is designed to run **locally**, using **free and open models**.
 
 ---
 
-## 🚀 Features
+#### 🚀 Features
 
 - PDF ingestion and semantic search
 - Vector storage using **Chroma**
@@ -18,15 +18,20 @@ It is designed to run **locally**, using **free and open models**.
 - Hugging Face open-source models
 - Optional Gradio UI for interaction
 
-##🧠 Models Used
+#### 🧠 Models Used
 - Embeddings: **sentence-transformers/all-MiniLM-L6-v2**
 - LLM:  meta-llama/Llama-2-7b-chat-hf
 
 ---
 
-## 🧩 Prerequisites
-
-### Python Packages (installed via `requirements.txt`)
+## 🧩 Environment Setup
+```bash
+python3.12 -m venv installations/python_envs/ml_chatbot_data_env
+## Activate the environment
+source /home/aq/installations/python_envs/ml_chatbot_data_env/bin/activate
+```
+### Install dependencies
+Python Packages (installed via `requirements.txt`)
 - langchain
 - langchain-community
 - transformers
@@ -36,21 +41,12 @@ It is designed to run **locally**, using **free and open models**.
 - gradio
 - huggingface_hub
 
----
-
-## 🧪 Environment Setup
-```bash
-python3.12 -m venv installations/python_envs/ml_chatbot_data_env
-## Activate the environment
-source /home/aq/installations/python_envs/ml_chatbot_data_env/bin/activate
-```
-## Install dependencies
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 🔐 Hugging Face Authentication (Required for LLaMA models)
+### Hugging Face Authentication
 Some models (e.g. LLaMA-2 / LLaMA-3) are gated and require authentication.
 1. Create [Hugging Face account](Go to: https://huggingface.co/join)
 2. Create a Read token: 
@@ -62,9 +58,9 @@ huggingface-cli login
 ```
 4. Paste your token when prompted.
 
-## ▶️ Running the Application
+## ▶️ Run the Server
 ```bash
-python3 server.py
+python3 server_chatbot.py
 ```
 The app will be available at: http://0.0.0.0:7860
 
@@ -74,3 +70,5 @@ The app will be available at: http://0.0.0.0:7860
 docker build --no-cache -t build_chatbot_data .
 docker run -p 8000:8000 build_chatbot_data
 ```
+### Contact Information
+We welcome contributions from the community please contact : [ahmed.qamesh@gmail.com](ahmed.qamesh@gmail.com) .

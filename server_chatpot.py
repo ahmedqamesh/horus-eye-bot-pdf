@@ -11,9 +11,36 @@ app = Flask(__name__)
 UPLOAD_DIR = os.path.join(os.getcwd(), "database")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+ALLOWED_MODELS = {
+    "llama2-7b": "meta-llama/Llama-2-7b-chat-hf",
+    "mistral-7b": "mistralai/Mistral-7B-Instruct-v0.2",
+}
 
 cors = CORS(app, resources={r"/*": {"origins": "*"}})
-app.logger.setLevel(logging.ERROR)
+app.logger.setLevel(logging.DEBUG)
+
+@app.route("/api/dropdown_modules", methods=["POST"])
+def dropdown_modules():
+    data = request.get_json()
+    model_key = data.get("model")
+    message = data.get("message")
+
+    if model_key not in ALLOWED_MODELS:
+        return {"error": "Invalid model"}, 400
+
+    model_id = ALLOWED_MODELS[model_key]
+    app.logger.info(" Selected model_id: %s", model_id)
+    if model_key == "llama2-7b": 
+        llm_hub = worker.init_llm(model_id)
+        response = llm_hub.invoke(message)
+        return {"response": response}   
+    else:
+        app.logger.warning(F"model_id:{model_id} is not in the Allowed model list")
+        return {
+                "debug": True,
+                "model_id": model_id,
+                "message": message
+            }
 
 # Define the route for processing messages
 @app.route('/process-message', methods=['POST'])
