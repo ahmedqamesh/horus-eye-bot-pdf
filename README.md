@@ -1,5 +1,13 @@
 # About the Project
 
+<p align="center">
+  <img 
+    src="https://github.com/ahmedqamesh/horus-eye-bot-pdf/blob/main/assets/images/horus-eye-assistant-front.png"
+    alt="horus-eye-assistant-front"
+    width="400"
+  />
+</p>
+
 This project implements a **local AI chatbot** that can:
 - Load and index **PDF documents**
 - Answer questions using **Retrieval-Augmented Generation (RAG)**
@@ -7,15 +15,6 @@ This project implements a **local AI chatbot** that can:
 - Optionally support **audio transcription** (Whisper)
 
 It is designed to run **locally**, using **free and open models**.
-
-<p align="center">
-  <img 
-    src="https://github.com/ahmedqamesh/horus-eye-bot-pdf/blob/main/assets/images/horus-eye-assistant-front.png"
-    alt="horus-eye-assistant-front"
-    width="600"
-  />
-</p>
-
 ---
 
 #### 🚀 Features
