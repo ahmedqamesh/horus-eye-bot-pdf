@@ -4,7 +4,7 @@
   <img 
     src="https://github.com/ahmedqamesh/horus-eye-bot-pdf/blob/main/assets/images/horus-eye-assistant-front.png"
     alt="horus-eye-assistant-front"
-    width="400"
+    width="500"
   />
 </p>
 
